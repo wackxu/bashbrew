@@ -33,7 +33,7 @@ func cmdPush(c *cli.Context) error {
 			return cli.NewMultiError(fmt.Errorf(`failed fetching repo %q`, repo), err)
 		}
 
-		tagRepo := path.Join(targetNamespace, r.RepoName)
+		tagRepo := path.Join(registryAddress, targetNamespace, r.RepoName)
 		for _, entry := range r.Entries() {
 			if r.SkipConstraints(entry) {
 				continue

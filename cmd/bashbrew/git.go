@@ -107,14 +107,26 @@ func gitStream(args ...string) (io.ReadCloser, error) {
 	return execpipe.Run(gitCommand(args...))
 }
 
-func gitArchive(commit string, dir string) (io.ReadCloser, error) {
+func gitArchive(commit string, dir string) (string, error) {
 	if dir == "." {
 		dir = ""
 	} else {
 		dir += "/"
 	}
-	return gitStream("archive", "--format=tar", commit+":"+dir)
+
+	tarFile := fmt.Sprintf("%s/%s.tar", defaultCache, commit)
+	cmd := []string{"archive", "-o", tarFile, "--format=tar", commit + ":" + dir}
+
+	_, err := gitCommand(cmd...).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("%v\ncommand: git archive %v\n%s", ee, cmd, string(ee.Stderr))
+		}
+	}
+
+	return tarFile, err
 }
+
 
 func gitShow(commit string, file string) (string, error) {
 	gitCommit, err := gitRepo.CommitObject(goGitPlumbing.NewHash(commit))

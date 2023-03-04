@@ -34,7 +34,7 @@ func cmdTag(c *cli.Context) error {
 
 			for _, tag := range r.Tags("", uniq, entry) {
 				sourceTag := path.Join(namespace, tag)
-				targetTag := path.Join(targetNamespace, tag)
+				targetTag := path.Join(registryAddress, targetNamespace, tag)
 				fmt.Printf("Tagging %s\n", targetTag)
 				if !dryRun {
 					err = dockerTag(sourceTag, targetTag)
