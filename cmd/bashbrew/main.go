@@ -28,6 +28,7 @@ var (
 	namespace            string
 	constraints          []string
 	exclusiveConstraints bool
+	registryAddress      string
 
 	archNamespaces map[string]string
 
@@ -44,8 +45,9 @@ var (
 		"cache":     "BASHBREW_CACHE",
 		"pull":      "BASHBREW_PULL",
 
-		"constraint":     "BASHBREW_CONSTRAINTS",
-		"arch-namespace": "BASHBREW_ARCH_NAMESPACES",
+		"constraint":       "BASHBREW_CONSTRAINTS",
+		"arch-namespace":   "BASHBREW_ARCH_NAMESPACES",
+		"registry-address": "BASHBREW_REGISTRY_ADDRESS",
 	}
 )
 
@@ -136,6 +138,11 @@ func main() {
 			EnvVar: flagEnvVars["cache"],
 			Usage:  "where the git wizardry is stashed",
 		},
+		cli.StringFlag{
+			Name:   "registry-address",
+			EnvVar: flagEnvVars["registry-address"],
+			Usage:  "the registry address, like 127.0.0.1:30000",
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -175,6 +182,7 @@ func main() {
 			namespace = c.GlobalString("namespace")
 			constraints = c.GlobalStringSlice("constraint")
 			exclusiveConstraints = c.GlobalBool("exclusive-constraints")
+			registryAddress = c.GlobalString("registry-address")
 
 			if arch == "" {
 				// weird edge case... ("BASHBREW_ARCH=")

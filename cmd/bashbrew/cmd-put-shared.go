@@ -41,7 +41,7 @@ func entriesToManifestToolYaml(singleArch bool, r Repo, entries ...*manifest.Man
 				continue
 			}
 
-			archImage := fmt.Sprintf("%s/%s:%s", archNamespace, r.RepoName, entry.Tags[0])
+			archImage := fmt.Sprintf("%s/library/%s/%s:%s", registryAddress, archNamespace, r.RepoName, entry.Tags[0])
 
 			// keep track of how many images we expect to push successfully in this manifest list (and what their manifest digests are)
 			// for non-manifest-list tags, this will be exactly 1 and for failed lookups it'll be 0
