@@ -140,6 +140,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "registry-address",
+			Value:  "testhub.com",
 			EnvVar: flagEnvVars["registry-address"],
 			Usage:  "the registry address, like 127.0.0.1:30000",
 		},
