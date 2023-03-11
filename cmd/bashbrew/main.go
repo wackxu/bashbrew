@@ -47,7 +47,7 @@ var (
 
 		"constraint":       "BASHBREW_CONSTRAINTS",
 		"arch-namespace":   "BASHBREW_ARCH_NAMESPACES",
-		"registry-address": "BASHBREW_REGISTRY_ADDRESS",
+		"registry-address": "REGISTRY_ADDRESS",
 	}
 )
 

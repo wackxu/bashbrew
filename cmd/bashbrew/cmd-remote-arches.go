@@ -20,6 +20,7 @@ func cmdRemoteArches(c *cli.Context) error {
 	doJson := c.Bool("json")
 	ctx := context.Background()
 	for _, arg := range args {
+		arg = fmt.Sprintf("%s/library/%s", registryAddress, arg)
 		img, err := registry.Resolve(ctx, arg)
 		if err != nil {
 			return err
