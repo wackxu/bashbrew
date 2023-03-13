@@ -452,7 +452,7 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 	}
 
 	for from, replaced := range fromMaps {
-		sedCmd := []string{"-c", fmt.Sprintf(`sed -i 's/FROM %s/FROM %s/g' %s/%s`, from, replaced, tmpDir, file)}
+		sedCmd := []string{"-c", fmt.Sprintf(`sed -i "s/FROM %s/FROM %s/g" %s/%s`, from, replaced, tmpDir, file)}
 		_, err := exec.Command("bash", sedCmd...).Output()
 		fmt.Println(fmt.Sprintf("22222222 err %v", err))
 		if err != nil {
@@ -474,7 +474,7 @@ func prepareReplaceFromPair(froms []string) map[string]string {
 		if _, exist := fromMaps[from]; exist {
 			continue
 		}
-		fromMaps[from] = fmt.Sprintf("%s/library/%s", registryAddress, from)
+		fromMaps[from] = fmt.Sprintf(`%s\/library\/%s`, registryAddress, from)
 	}
 	return fromMaps
 }
