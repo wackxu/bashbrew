@@ -124,7 +124,7 @@ func gitArchive(commit string, dir string) (string, error) {
 		}
 	}
 
-	return tarFile, nil
+	return tarFile, err
 }
 
 
