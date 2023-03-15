@@ -440,11 +440,14 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 	}
 
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
-	fmt.Println(fmt.Sprintf("000000000000 %s", tmpDir))
+	fmt.Printf("000000000000 %s", tmpDir)
 
 	tarCmd := []string{"-c", fmt.Sprintf("mkdir -p %s; tar xf %s -C %s", tmpDir, tarFile, tmpDir)}
-	_, err := exec.Command("bash", tarCmd...).Output()
-	fmt.Println(fmt.Sprintf("1111 err %v", err))
+	mkcmd := exec.Command("bash", tarCmd...)
+	mkcmd.Stdout = os.Stdout
+	mkcmd.Stderr = os.Stderr
+	err := mkcmd.Run()
+	fmt.Printf("1111 err %v", err)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
@@ -453,8 +456,11 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 
 	for from, replaced := range fromMaps {
 		sedCmd := []string{"-c", fmt.Sprintf(`sed -i "s/FROM %s/FROM %s/g" %s/%s`, from, replaced, tmpDir, file)}
-		_, err := exec.Command("bash", sedCmd...).Output()
-		fmt.Println(fmt.Sprintf("22222222 err %v", err))
+		sssss := exec.Command("bash", sedCmd...)
+		sssss.Stdout = os.Stdout
+		sssss.Stderr = os.Stderr
+		err := sssss.Run()
+		fmt.Printf("22222222 err %v", err)
 		if err != nil {
 			if ee, ok := err.(*exec.ExitError); ok {
 				return fmt.Errorf("%v\ncommand: sed error\n%s", ee, string(ee.Stderr))
