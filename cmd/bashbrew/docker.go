@@ -435,11 +435,6 @@ func dockerPull(tag string) error {
 }
 
 func modifyDockerfileFrom(file, tarFile string, froms []string) error {
-	fromMaps := prepareReplaceFromPair(froms)
-	if len(fromMaps) == 0 {
-		return nil
-	}
-
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
 	fmt.Printf("000000000000 %s", tmpDir)
 
@@ -458,6 +453,11 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 		//	return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
 		//}
 		return err
+	}
+
+	fromMaps := prepareReplaceFromPair(froms)
+	if len(fromMaps) == 0 {
+		return nil
 	}
 
 	for from, replaced := range fromMaps {
