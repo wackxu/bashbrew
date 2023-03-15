@@ -299,7 +299,8 @@ func dockerBuildFromTarFile(tags []string, file string, tarFile, platform string
 	}
 
 	defer func() {
-		_, _ = exec.Command("rm", "-rf", tmpDir).Output()
+		exec.Command("rm", "-rf", tarFile).Output()
+		exec.Command("rm", "-rf", tmpDir).Output()
 	}()
 
 	args := []string{"build"}
@@ -442,16 +443,21 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
 	fmt.Printf("000000000000 %s", tmpDir)
 
-	tarCmd := []string{"-c", fmt.Sprintf("mkdir -p %s; tar xf %s -C %s", tmpDir, tarFile, tmpDir)}
+	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	tarCmd := []string{"-c", fmt.Sprintf("tar xf %s -C %s", tarFile, tmpDir)}
 	mkcmd := exec.Command("bash", tarCmd...)
 	mkcmd.Stdout = os.Stdout
 	mkcmd.Stderr = os.Stderr
 	err := mkcmd.Run()
 	fmt.Printf("1111 err %v", err)
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
-		}
+		//if ee, ok := err.(*exec.ExitError); ok {
+		//	return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
+		//}
+		return err
 	}
 
 	for from, replaced := range fromMaps {
