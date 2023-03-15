@@ -291,9 +291,9 @@ func dockerBuild(tags []string, file string, context io.Reader, platform string)
 	}
 }
 
-func dockerBuildFromTarFile(tags []string, file string, tarFile, platform string, froms []string) error {
+func dockerBuildFromTarFile(tags []string, file string, tarFile, platform, repoName string, froms []string) error {
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
-	err := modifyDockerfileFrom(file, tarFile, froms)
+	err := modifyDockerfileFrom(file, tarFile, repoName, froms)
 	if err != nil {
 		return err
 	}
@@ -343,9 +343,9 @@ func dockerBuildFromTarFile(tags []string, file string, tarFile, platform string
 
 const dockerfileSyntaxEnv = "BASHBREW_BUILDKIT_SYNTAX"
 
-func dockerBuildxBuild(tags []string, file string, tarFile, platform string, froms []string) error {
+func dockerBuildxBuild(tags []string, file string, tarFile, platform, repoName string, froms []string) error {
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
-	err := modifyDockerfileFrom(file, tarFile, froms)
+	err := modifyDockerfileFrom(file, tarFile, repoName, froms)
 	if err != nil {
 		return err
 	}
@@ -434,7 +434,7 @@ func dockerPull(tag string) error {
 	return err
 }
 
-func modifyDockerfileFrom(file, tarFile string, froms []string) error {
+func modifyDockerfileFrom(file, tarFile, repoName string, froms []string) error {
 	tmpDir := strings.TrimSuffix(tarFile, ".tar")
 	fmt.Printf("000000000000 %s", tmpDir)
 
@@ -449,10 +449,9 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 	err := mkcmd.Run()
 	fmt.Printf("1111 err %v", err)
 	if err != nil {
-		//if ee, ok := err.(*exec.ExitError); ok {
-		//	return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
-		//}
-		return err
+		if ee, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("%v\ncommand: update tar\n%s", ee, string(ee.Stderr))
+		}
 	}
 
 	fromMaps := prepareReplaceFromPair(froms)
@@ -461,6 +460,10 @@ func modifyDockerfileFrom(file, tarFile string, froms []string) error {
 	}
 
 	for from, replaced := range fromMaps {
+		if strings.HasPrefix(from, repoName) {
+			err = dockerTag(from, replaced)
+			fmt.Printf("docker tag err: %v", err)
+		}
 		sedCmd := []string{"-c", fmt.Sprintf(`sed -i "s/FROM %s/FROM %s/g" %s/%s`, from, replaced, tmpDir, file)}
 		sssss := exec.Command("bash", sedCmd...)
 		sssss.Stdout = os.Stdout

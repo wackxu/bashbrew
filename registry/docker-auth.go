@@ -80,6 +80,10 @@ var (
 	resolverOnce sync.Once
 )
 
+var defaultHubClient = &http.Client{
+	Transport: newDefaultTransport(),
+}
+
 // returns a containerd "Resolver" suitable for interacting with registries (that will transparently honor DOCKERHUB_PUBLIC_PROXY for read-only lookups *and* deal with looking up credentials from ~/.docker/config.json)
 func NewDockerAuthResolver() remotes.Resolver {
 	resolverOnce.Do(func() {
@@ -87,9 +91,7 @@ func NewDockerAuthResolver() remotes.Resolver {
 			Hosts: func(domain string) ([]dockerremote.RegistryHost, error) {
 				// https://github.com/containerd/containerd/blob/v1.6.10/remotes/docker/registry.go#L152-L198
 				config := dockerremote.RegistryHost{
-					Client: &http.Client{
-						Transport: newDefaultTransport(),
-					},
+					Client:       defaultHubClient,
 					Host:         domain,
 					Scheme:       "https",
 					Path:         "/v2",
@@ -101,7 +103,7 @@ func NewDockerAuthResolver() remotes.Resolver {
 						}
 						username, password, _ := strings.Cut(usernameColonPassword, ":")
 						return username, password, nil
-					})),
+					}), dockerremote.WithAuthClient(defaultHubClient)),
 				}
 				if domain == "docker.io" {
 					// https://github.com/containerd/containerd/blob/v1.6.10/remotes/docker/registry.go#L193
