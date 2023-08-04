@@ -58,7 +58,7 @@ func cmdBuild(c *cli.Context) error {
 					case "always":
 						doPull = true
 					case "missing":
-						_, err := dockerInspect("{{.Id}}", from)
+						_, err := dockerInspect("{{.Id}}", fmt.Sprintf("%s/library/%s", registryAddress, from))
 						doPull = (err != nil)
 					default:
 						return fmt.Errorf(`unexpected value for --pull: %s`, pull)
@@ -105,19 +105,16 @@ func cmdBuild(c *cli.Context) error {
 						if err != nil {
 							return cli.NewMultiError(fmt.Errorf(`failed generating git archive for %q (tags %q)`, r.RepoName, entry.TagsString()), err)
 						}
-						defer archive.Close()
 
 						if builder == "buildkit" {
-							err = dockerBuildxBuild(tags, entry.ArchFile(arch), archive, platform)
+							err = dockerBuildxBuild(tags, entry.ArchFile(arch), archive, platform, r.RepoName, froms)
 						} else {
 							// TODO use "meta.StageNames" to do "docker build --target" so we can tag intermediate stages too for cache (streaming "git archive" directly to "docker build" makes that a little hard to accomplish without re-streaming)
-							err = dockerBuild(tags, entry.ArchFile(arch), archive, platform)
+							err = dockerBuildFromTarFile(tags, entry.ArchFile(arch), archive, platform, r.RepoName, froms)
 						}
 						if err != nil {
 							return cli.NewMultiError(fmt.Errorf(`failed building %q (tags %q)`, r.RepoName, entry.TagsString()), err)
 						}
-
-						archive.Close() // be sure this happens sooner rather than later (defer might take a while, and we want to reap zombies more aggressively)
 
 					case "oci-import":
 						desc, err := ociImportBuild(tags, commit, entry.ArchDirectory(arch), entry.ArchFile(arch))

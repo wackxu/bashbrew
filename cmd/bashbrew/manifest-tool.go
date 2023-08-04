@@ -21,7 +21,7 @@ func manifestToolPushFromSpec(yamlSpec string) error {
 		return err
 	}
 
-	args := []string{"push", "from-spec", "--ignore-missing", yamlFile.Name()}
+	args := []string{"--insecure=true", "push", "from-spec", "--ignore-missing", yamlFile.Name()}
 	if debugFlag {
 		args = append([]string{"--debug"}, args...)
 		fmt.Printf("$ manifest-tool %q\n", args)
