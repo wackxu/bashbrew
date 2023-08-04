@@ -297,7 +297,18 @@ const (
 	buildxBuilderEnv    = "BUILDX_BUILDER"
 )
 
-func dockerBuildxBuild(tags []string, file string, context io.Reader, platform string) error {
+func dockerBuildxBuild(tags []string, file string, tarFile string, platform string, repoName string, froms []string) error {
+	tmpDir := strings.TrimSuffix(tarFile, ".tar")
+	err := modifyDockerfileFrom(file, tarFile, repoName, froms)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		exec.Command("rm", "-rf", tarFile).Output()
+		exec.Command("rm", "-rf", tmpDir).Output()
+	}()
+
 	dockerfileSyntax, ok := os.LookupEnv(dockerfileSyntaxEnv)
 	if !ok {
 		return fmt.Errorf("missing %q", dockerfileSyntaxEnv)
@@ -327,9 +338,9 @@ func dockerBuildxBuild(tags []string, file string, context io.Reader, platform s
 		args = append(args, "--tag", tag)
 	}
 	if file != "" {
-		args = append(args, "--file", file)
+		args = append(args, "--file", tmpDir+"/"+file, tmpDir)
 	}
-	args = append(args, "-")
+	//args = append(args, "-")
 
 	if buildxBuilder {
 		args = append(args, "--output", "type=oci")
@@ -337,7 +348,7 @@ func dockerBuildxBuild(tags []string, file string, context io.Reader, platform s
 	}
 
 	cmd := exec.Command("docker", args...)
-	cmd.Stdin = context
+	//cmd.Stdin = context
 
 	run := func() error {
 		return cmd.Run()
@@ -398,6 +409,56 @@ func dockerBuildxBuild(tags []string, file string, context io.Reader, platform s
 	}
 }
 
+func dockerBuildFromTarFile(tags []string, file string, tarFile, platform, repoName string, froms []string) error {
+	tmpDir := strings.TrimSuffix(tarFile, ".tar")
+	err := modifyDockerfileFrom(file, tarFile, repoName, froms)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		exec.Command("rm", "-rf", tarFile).Output()
+		exec.Command("rm", "-rf", tmpDir).Output()
+	}()
+
+	args := []string{"build"}
+	for _, tag := range tags {
+		args = append(args, "--tag", tag)
+	}
+
+	args = append(args, "--file", tmpDir+"/"+file)
+	args = append(args, "--rm", "--force-rm", tmpDir)
+
+	cmd := exec.Command("docker", args...)
+	cmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=0")
+	if debugFlag {
+		fmt.Println("$ export DOCKER_BUILDKIT=0")
+	}
+	if platform != "" {
+		// ideally, we would set this via an explicit "--platform" flag on "docker build", but it's not supported without buildkit until 20.10+ and this is a trivial way to get Docker to do the right thing in both cases without explicitly trying to detect whether we're on 20.10+
+		// https://github.com/docker/cli/blob/v20.10.7/cli/command/image/build.go#L163
+		cmd.Env = append(cmd.Env, "DOCKER_DEFAULT_PLATFORM="+platform)
+		if debugFlag {
+			fmt.Printf("$ export DOCKER_DEFAULT_PLATFORM=%q\n", platform)
+		}
+	}
+	if debugFlag {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		fmt.Printf("$ docker %q\n", args)
+		return cmd.Run()
+	} else {
+		buf := &bytes.Buffer{}
+		cmd.Stdout = buf
+		cmd.Stderr = buf
+		err := cmd.Run()
+		if err != nil {
+			err = cli.NewMultiError(err, fmt.Errorf(`docker %q output:%s`, args, "\n"+buf.String()))
+		}
+		return err
+	}
+}
+
 func dockerTag(tag1 string, tag2 string) error {
 	if debugFlag {
 		fmt.Printf("$ docker tag %q %q\n", tag1, tag2)
@@ -415,6 +476,9 @@ func dockerPush(tag string) error {
 	if debugFlag {
 		fmt.Printf("$ docker push %q\n", tag)
 	}
+
+	tag = fmt.Sprintf("%s/library/%s", registryAddress, tag)
+
 	_, err := exec.Command("docker", "push", tag).Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -435,4 +499,56 @@ func dockerPull(tag string) error {
 		}
 	}
 	return err
+}
+
+func modifyDockerfileFrom(file, tarFile, repoName string, froms []string) error {
+	tmpDir := strings.TrimSuffix(tarFile, ".tar")
+	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	tarCmd := []string{"-c", fmt.Sprintf("tar xf %s -C %s", tarFile, tmpDir)}
+	_, err := exec.Command("bash", tarCmd...).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("%v\ncommand: tar xf file\n%s", ee, string(ee.Stderr))
+		}
+	}
+
+	fromMaps := deduplicateFrom(froms)
+	if len(fromMaps) == 0 {
+		return nil
+	}
+
+	for from := range fromMaps {
+		if strings.HasPrefix(from, repoName) {
+			err = dockerTag(from, fmt.Sprintf("%s/library/%s", registryAddress, from))
+			fmt.Printf("docker tag err: %v", err)
+		}
+
+		replaced := fmt.Sprintf(`%s\/library\/%s`, registryAddress, from)
+		sedCmd := []string{"-c", fmt.Sprintf(`sed -i "s/FROM %s/FROM %s/g" %s/%s`, from, replaced, tmpDir, file)}
+		_, err := exec.Command("bash", sedCmd...).Output()
+		if err != nil {
+			if ee, ok := err.(*exec.ExitError); ok {
+				return fmt.Errorf("%v\ncommand: sed error\n%s", ee, string(ee.Stderr))
+			}
+		}
+	}
+
+	return nil
+}
+
+func deduplicateFrom(froms []string) map[string]bool {
+	fromMaps := make(map[string]bool)
+	for _, from := range froms {
+		if from == "scratch" {
+			continue
+		}
+		if _, exist := fromMaps[from]; exist {
+			continue
+		}
+		fromMaps[from] = true
+	}
+	return fromMaps
 }

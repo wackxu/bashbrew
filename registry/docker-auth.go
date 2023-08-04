@@ -1,20 +1,28 @@
 package registry
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	iofs "io/fs"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/containerd/containerd/remotes"
 	dockerremote "github.com/containerd/containerd/remotes/docker"
 )
+
+var defaultHubClient = &http.Client{
+	Transport: newDefaultTransport(),
+}
 
 // given a registry hostname, return the "user:pass" string decoded from base64 in ~/.docker/config.json
 func lookupDockerAuthCredentials(registry string) (usernameColonPassword string, err error) {
@@ -83,6 +91,7 @@ func NewDockerAuthResolver() remotes.Resolver {
 			Hosts: func(domain string) ([]dockerremote.RegistryHost, error) {
 				// https://github.com/containerd/containerd/blob/v1.6.10/remotes/docker/registry.go#L152-L198
 				config := dockerremote.RegistryHost{
+					Client:       defaultHubClient,
 					Host:         domain,
 					Scheme:       "https",
 					Path:         "/v2",
@@ -94,7 +103,7 @@ func NewDockerAuthResolver() remotes.Resolver {
 						}
 						username, password, _ := strings.Cut(usernameColonPassword, ":")
 						return username, password, nil
-					})),
+					}), dockerremote.WithAuthClient(defaultHubClient)),
 				}
 				if domain == "docker.io" {
 					// https://github.com/containerd/containerd/blob/v1.6.10/remotes/docker/registry.go#L193
@@ -124,4 +133,22 @@ func NewDockerAuthResolver() remotes.Resolver {
 		})
 	})
 	return resolver
+}
+
+func newDefaultTransport() *http.Transport {
+	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 60 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          30,
+		IdleConnTimeout:       120 * time.Second,
+		MaxIdleConnsPerHost:   4,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 5 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 }
